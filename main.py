@@ -8,7 +8,7 @@ def readsentence(line_message, data , last_index,name):
     if decoded_char == '\r\n':
         if line_message != '':
             allmes.append(f'{name}:{line_message}')
-            last_index+=1;
+            # last_index[0] += 1;
             line_message = ''
     elif decoded_char == '\x08':
         if len(line_message) > 0:
@@ -29,7 +29,14 @@ def readname(line_message, data,name):
     else:
         line_message += data.decode('utf-8')
 
-    return line_message, name
+    return line_message, name.strip()
+
+def threaded_chat_update(conn, allmes, last_index):
+
+    while True:
+        while last_index[0] < len(allmes):
+            conn.send(str.encode(allmes[last_index[0]] + '\r\n'))
+            last_index[0] += 1;
 
 
 allmes = []
@@ -62,22 +69,27 @@ def threaded_client(conn):
 
     allmes.append(f'{name} joined the chatroom!\r\n')
     line_message = ''
-    last_index = 0
+    last_index = [0]
+    chatUpdateThread = threading.Thread(target=threaded_chat_update, args=(conn, allmes, last_index), daemon=True)
+    chatUpdateThread.start()
+
     while True:
-        while last_index < len(allmes):
-            conn.send(str.encode(allmes[last_index] + '\r\n'))
-            last_index += 1;
+        # while last_index < len(allmes):
+        #     conn.send(str.encode(allmes[last_index] + '\r\n'))
+        #     last_index += 1;
 
         data = conn.recv(2048)
         line_message,last_index = readsentence(line_message,data,last_index,name)
 
         # reply = "So your favorite color is "+data.decode('utf-8')
         if not data:
+            # chatUpdateThread.
             break
         # conn.send(str.encode(reply))
 
     conn.close
-    print('connection is closed')
+    allmes.append(f'{name} left the chatroom!\r\n')
+    print(f'connection with {name} is closed')
     print(allmes)
 
 
